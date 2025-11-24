@@ -1,0 +1,45 @@
+# Cloud Build configuration para Google Cloud Run
+steps:
+  # Construir la imagen Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:latest'
+      - '.'
+
+  # Subir la imagen a Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:$SHORT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:latest'
+
+  # Desplegar en Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'wompi-webhook-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/wompi-webhook-backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+

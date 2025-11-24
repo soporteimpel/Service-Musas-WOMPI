@@ -1,0 +1,27 @@
+{
+  "name": "wompi-webhook-backend",
+  "version": "1.0.0",
+  "description": "Backend para recibir webhooks de Wompi y actualizar Rollbase",
+  "main": "wompi-webhook.js",
+  "scripts": {
+    "start": "node wompi-webhook.js",
+    "dev": "nodemon wompi-webhook.js"
+  },
+  "keywords": [
+    "wompi",
+    "webhook",
+    "rollbase",
+    "payment"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+
