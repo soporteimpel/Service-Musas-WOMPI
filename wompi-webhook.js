@@ -423,7 +423,17 @@ app.post('/webhook/wompi', async (req, res) => {
     let codigoDescuentoNombreFromWebhook = null;
     let valorTotalFromWebhook = null;
     try {
-      const customerData = transaction.customer_data || eventData.customer_data || event.customer_data || eventData.transaction?.customer_data;
+      // Intentar múltiples ubicaciones donde Wompi podría enviar customer-data
+      const customerData = transaction.customer_data || 
+                          transaction.customerData ||
+                          eventData.customer_data || 
+                          eventData.customerData ||
+                          event.customer_data ||
+                          event.customerData ||
+                          eventData.transaction?.customer_data ||
+                          eventData.transaction?.customerData ||
+                          transaction.metadata?.customer_data ||
+                          transaction.metadata?.customerData;
       
       if (customerData) {
         const customerDataObj = typeof customerData === 'string' ? JSON.parse(customerData) : customerData;
@@ -493,11 +503,11 @@ app.post('/webhook/wompi', async (req, res) => {
       const escapedReference = reference.replace(/'/g, "''");
       // Intentar diferentes nombres de campo posibles (sin LIMIT, Rollbase puede no soportarlo)
       const musaQueries = [
-        `SELECT id, R74136898 FROM Musa WHERE Refencia_wompi = '${escapedReference}'`,
-        `SELECT id, R74136898 FROM Musa WHERE Referencia_wompi = '${escapedReference}'`, // Fallback por si está mal escrito
-        `SELECT id, R74136898 FROM Musa WHERE Reference_wompi = '${escapedReference}'`,
-        `SELECT id, R74136898 FROM Musa WHERE referencia_wompi = '${escapedReference}'`,
-        `SELECT id, R74136898 FROM Musa WHERE name = '${escapedReference}'` // Por si está en name
+        `SELECT id, R74136898, Codigo_Descuento_Id, codigo_descuento_id, Codigo_Descuento_Nombre, Nombre_Codigo_Descuento, Valor_Total_Venta, valor_total_venta FROM Musa WHERE Refencia_wompi = '${escapedReference}'`,
+        `SELECT id, R74136898, Codigo_Descuento_Id, codigo_descuento_id, Codigo_Descuento_Nombre, Nombre_Codigo_Descuento, Valor_Total_Venta, valor_total_venta FROM Musa WHERE Referencia_wompi = '${escapedReference}'`, // Fallback por si está mal escrito
+        `SELECT id, R74136898, Codigo_Descuento_Id, codigo_descuento_id, Codigo_Descuento_Nombre, Nombre_Codigo_Descuento, Valor_Total_Venta, valor_total_venta FROM Musa WHERE Reference_wompi = '${escapedReference}'`,
+        `SELECT id, R74136898, Codigo_Descuento_Id, codigo_descuento_id, Codigo_Descuento_Nombre, Nombre_Codigo_Descuento, Valor_Total_Venta, valor_total_venta FROM Musa WHERE referencia_wompi = '${escapedReference}'`,
+        `SELECT id, R74136898, Codigo_Descuento_Id, codigo_descuento_id, Codigo_Descuento_Nombre, Nombre_Codigo_Descuento, Valor_Total_Venta, valor_total_venta FROM Musa WHERE name = '${escapedReference}'` // Por si está en name
       ];
       
       for (const musaQuery of musaQueries) {
@@ -513,8 +523,49 @@ app.post('/webhook/wompi', async (req, res) => {
           }
           
           if (foundMusa) {
-            const foundId = Array.isArray(foundMusa) ? foundMusa[0] : (foundMusa.id || foundMusa.Id);
-            const foundPlanId = Array.isArray(foundMusa) ? foundMusa[1] : (foundMusa.R74136898 || foundMusa['R74136898']);
+            // Extraer datos usando nombres de campos (más confiable que índices)
+            const foundId = foundMusa.id || foundMusa.Id || foundMusa['id'] || (Array.isArray(foundMusa) ? foundMusa[0] : null);
+            const foundPlanId = foundMusa.R74136898 || foundMusa['R74136898'] || (Array.isArray(foundMusa) ? foundMusa[1] : null);
+            
+            // Extraer código de descuento y valor total desde la musa usando nombres de campos
+            if (!codigoDescuentoIdFromWebhook) {
+              codigoDescuentoIdFromWebhook = foundMusa.Codigo_Descuento_Id || foundMusa['Codigo_Descuento_Id'] || 
+                                            foundMusa.codigo_descuento_id || foundMusa['codigo_descuento_id'] ||
+                                            (Array.isArray(foundMusa) ? foundMusa[2] : null);
+              // Normalizar si es string
+              if (codigoDescuentoIdFromWebhook) {
+                codigoDescuentoIdFromWebhook = String(codigoDescuentoIdFromWebhook).trim();
+                if (codigoDescuentoIdFromWebhook === 'null' || codigoDescuentoIdFromWebhook === 'undefined' || codigoDescuentoIdFromWebhook === '') {
+                  codigoDescuentoIdFromWebhook = null;
+                }
+              }
+            }
+            
+            if (!codigoDescuentoNombreFromWebhook) {
+              codigoDescuentoNombreFromWebhook = foundMusa.Codigo_Descuento_Nombre || foundMusa['Codigo_Descuento_Nombre'] || 
+                                                 foundMusa.Nombre_Codigo_Descuento || foundMusa['Nombre_Codigo_Descuento'] ||
+                                                 (Array.isArray(foundMusa) ? foundMusa[4] : null);
+              // Normalizar si es string
+              if (codigoDescuentoNombreFromWebhook) {
+                codigoDescuentoNombreFromWebhook = String(codigoDescuentoNombreFromWebhook).trim();
+                if (codigoDescuentoNombreFromWebhook === 'null' || codigoDescuentoNombreFromWebhook === 'undefined' || codigoDescuentoNombreFromWebhook === '') {
+                  codigoDescuentoNombreFromWebhook = null;
+                }
+              }
+            }
+            
+            if (!valorTotalFromWebhook) {
+              valorTotalFromWebhook = foundMusa.Valor_Total_Venta || foundMusa['Valor_Total_Venta'] || 
+                                      foundMusa.valor_total_venta || foundMusa['valor_total_venta'] ||
+                                      (Array.isArray(foundMusa) ? foundMusa[6] : null);
+              // Normalizar si es string
+              if (valorTotalFromWebhook) {
+                valorTotalFromWebhook = String(valorTotalFromWebhook).trim();
+                if (valorTotalFromWebhook === 'null' || valorTotalFromWebhook === 'undefined' || valorTotalFromWebhook === '') {
+                  valorTotalFromWebhook = null;
+                }
+              }
+            }
             
             if (foundId) {
               musaId = String(foundId).trim();
@@ -540,21 +591,68 @@ app.post('/webhook/wompi', async (req, res) => {
     // SEGUNDO: Si tenemos musaId del webhook, buscar directamente por ID
     if (!musaId && musaIdFromWebhook) {
       try {
-        const musaQuery = `SELECT id, R74136898, Refencia_wompi FROM Musa WHERE id = '${musaIdFromWebhook}' LIMIT 1`;
+        const musaQuery = `SELECT id, R74136898, Refencia_wompi, Codigo_Descuento_Id, codigo_descuento_id, Codigo_Descuento_Nombre, Nombre_Codigo_Descuento, Valor_Total_Venta, valor_total_venta FROM Musa WHERE id = '${musaIdFromWebhook}' LIMIT 1`;
         const musaResult = await executeRollbaseQuery(musaQuery);
         
         if (musaResult && Array.isArray(musaResult) && musaResult.length > 0) {
           const musa = Array.isArray(musaResult[0]) ? musaResult[0] : musaResult[0];
-          musaId = Array.isArray(musa) ? musa[0] : musa.id;
+          
+          // Extraer datos usando nombres de campos (más confiable que índices)
+          musaId = musa.id || musa.Id || musa['id'] || (Array.isArray(musa) ? musa[0] : null);
+          
+          // Extraer código de descuento y valor total desde la musa usando nombres de campos
+          if (!codigoDescuentoIdFromWebhook) {
+            codigoDescuentoIdFromWebhook = musa.Codigo_Descuento_Id || musa['Codigo_Descuento_Id'] || 
+                                          musa.codigo_descuento_id || musa['codigo_descuento_id'] ||
+                                          (Array.isArray(musa) ? musa[3] : null);
+            // Normalizar si es string
+            if (codigoDescuentoIdFromWebhook) {
+              codigoDescuentoIdFromWebhook = String(codigoDescuentoIdFromWebhook).trim();
+              if (codigoDescuentoIdFromWebhook === 'null' || codigoDescuentoIdFromWebhook === 'undefined' || codigoDescuentoIdFromWebhook === '') {
+                codigoDescuentoIdFromWebhook = null;
+              }
+            }
+          }
+          
+          if (!codigoDescuentoNombreFromWebhook) {
+            codigoDescuentoNombreFromWebhook = musa.Codigo_Descuento_Nombre || musa['Codigo_Descuento_Nombre'] || 
+                                               musa.Nombre_Codigo_Descuento || musa['Nombre_Codigo_Descuento'] ||
+                                               (Array.isArray(musa) ? musa[5] : null);
+            // Normalizar si es string
+            if (codigoDescuentoNombreFromWebhook) {
+              codigoDescuentoNombreFromWebhook = String(codigoDescuentoNombreFromWebhook).trim();
+              if (codigoDescuentoNombreFromWebhook === 'null' || codigoDescuentoNombreFromWebhook === 'undefined' || codigoDescuentoNombreFromWebhook === '') {
+                codigoDescuentoNombreFromWebhook = null;
+              }
+            }
+          }
+          
+          if (!valorTotalFromWebhook) {
+            valorTotalFromWebhook = musa.Valor_Total_Venta || musa['Valor_Total_Venta'] || 
+                                   musa.valor_total_venta || musa['valor_total_venta'] ||
+                                   (Array.isArray(musa) ? musa[7] : null);
+            // Normalizar si es string
+            if (valorTotalFromWebhook) {
+              valorTotalFromWebhook = String(valorTotalFromWebhook).trim();
+              if (valorTotalFromWebhook === 'null' || valorTotalFromWebhook === 'undefined' || valorTotalFromWebhook === '') {
+                valorTotalFromWebhook = null;
+              }
+            }
+          }
+          
           // Solo actualizar planId si no lo tenemos del webhook y si se encontró en la musa
           if (!planId) {
-            const foundPlanId = Array.isArray(musa) ? musa[1] : (musa.R74136898 || musa['R74136898']);
+            const foundPlanId = musa.R74136898 || musa['R74136898'] || (Array.isArray(musa) ? musa[1] : null);
             if (foundPlanId) {
               planId = String(foundPlanId).trim();
             }
           }
-          const musaReferencia = Array.isArray(musa) ? musa[2] : (musa.Refencia_wompi || musa['Refencia_wompi'] || musa.Referencia_wompi || musa['Referencia_wompi'] || musa.Reference_wompi || musa['Reference_wompi']);
           
+          const musaReferencia = musa.Refencia_wompi || musa['Refencia_wompi'] || musa.Referencia_wompi || musa['Referencia_wompi'] || musa.Reference_wompi || musa['Reference_wompi'] || (Array.isArray(musa) ? musa[2] : null);
+          
+          if (musaId) {
+            musaId = String(musaId).trim();
+          }
           
           if (musaReferencia && musaReferencia.trim() === reference.trim()) {
           } else {
@@ -958,7 +1056,7 @@ app.post('/webhook/wompi', async (req, res) => {
           ventaFields.Nombre_Plan = String(planName);
         }
         
-        // Agregar código de descuento si está disponible desde customer-data
+        // Agregar código de descuento si está disponible desde customer-data o desde la musa
         if (codigoDescuentoIdFromWebhook) {
           // R73885532 - Relación con tabla Codigo_Descuento (ID del código de descuento aplicado)
           ventaFields.R73885532 = String(codigoDescuentoIdFromWebhook).trim();
