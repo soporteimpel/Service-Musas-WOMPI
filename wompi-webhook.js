@@ -529,7 +529,7 @@ app.post('/webhook/wompi', async (req, res) => {
             
             // Extraer código de descuento y valor total desde la musa usando nombres de campos
             if (!codigoDescuentoIdFromWebhook) {
-              codigoDescuentoIdFromWebhook = foundMusa.Codigo_Descuento_Id || foundMusa['Codigo_Descuento_Id'] || 
+              codigoDescuentoIdFromWebhook = foundMusa.Codigo_Descuento_Id || foundMusa['Codigo_Descuento_Id'] ||
                                             foundMusa.codigo_descuento_id || foundMusa['codigo_descuento_id'] ||
                                             (Array.isArray(foundMusa) ? foundMusa[2] : null);
               // Normalizar si es string
@@ -540,9 +540,9 @@ app.post('/webhook/wompi', async (req, res) => {
                 }
               }
             }
-            
+
             if (!codigoDescuentoNombreFromWebhook) {
-              codigoDescuentoNombreFromWebhook = foundMusa.Codigo_Descuento_Nombre || foundMusa['Codigo_Descuento_Nombre'] || 
+              codigoDescuentoNombreFromWebhook = foundMusa.Codigo_Descuento_Nombre || foundMusa['Codigo_Descuento_Nombre'] ||
                                                  foundMusa.Nombre_Codigo_Descuento || foundMusa['Nombre_Codigo_Descuento'] ||
                                                  (Array.isArray(foundMusa) ? foundMusa[4] : null);
               // Normalizar si es string
@@ -553,9 +553,9 @@ app.post('/webhook/wompi', async (req, res) => {
                 }
               }
             }
-            
+
             if (!valorTotalFromWebhook) {
-              valorTotalFromWebhook = foundMusa.Valor_Total_Venta || foundMusa['Valor_Total_Venta'] || 
+              valorTotalFromWebhook = foundMusa.Valor_Total_Venta || foundMusa['Valor_Total_Venta'] ||
                                       foundMusa.valor_total_venta || foundMusa['valor_total_venta'] ||
                                       (Array.isArray(foundMusa) ? foundMusa[6] : null);
               // Normalizar si es string
@@ -640,6 +640,10 @@ app.post('/webhook/wompi', async (req, res) => {
             }
           }
           
+          if (musaId) {
+            musaId = String(musaId).trim();
+          }
+          
           // Solo actualizar planId si no lo tenemos del webhook y si se encontró en la musa
           if (!planId) {
             const foundPlanId = musa.R74136898 || musa['R74136898'] || (Array.isArray(musa) ? musa[1] : null);
@@ -647,12 +651,7 @@ app.post('/webhook/wompi', async (req, res) => {
               planId = String(foundPlanId).trim();
             }
           }
-          
           const musaReferencia = musa.Refencia_wompi || musa['Refencia_wompi'] || musa.Referencia_wompi || musa['Referencia_wompi'] || musa.Reference_wompi || musa['Reference_wompi'] || (Array.isArray(musa) ? musa[2] : null);
-          
-          if (musaId) {
-            musaId = String(musaId).trim();
-          }
           
           if (musaReferencia && musaReferencia.trim() === reference.trim()) {
           } else {
