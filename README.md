@@ -79,15 +79,16 @@ O desde la consola de Google Cloud:
 
 ## 📡 Endpoints
 
-Una vez desplegado, tendrás acceso a:
+Servicio desplegado en Cloud Run:
 
-- **Webhook principal**: `POST https://TU_SERVICIO.run.app/webhook/wompi`
-- **Health check**: `GET https://TU_SERVICIO.run.app/health`
+- **URL del servicio**: `https://wompi-musas-1032775540289.us-central1.run.app`
+- **Webhook principal**: `POST https://wompi-musas-1032775540289.us-central1.run.app/webhook/wompi`
+- **Health check**: `GET https://wompi-musas-1032775540289.us-central1.run.app/health`
 
 ## 🔗 Configurar Webhook en Wompi
 
-1. Ve al panel de Wompi
-2. Configura el webhook URL: `https://TU_SERVICIO.run.app/webhook/wompi`
+1. Ve al panel de Wompi: https://comercios.wompi.co/
+2. Configura el webhook URL: `https://wompi-musas-1032775540289.us-central1.run.app/webhook/wompi`
 3. Asegúrate de usar el mismo `WOMPI_EVENTS_SECRET` en ambas partes
 
 ## 🧪 Desarrollo Local

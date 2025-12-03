@@ -416,9 +416,12 @@ app.post('/webhook/wompi', async (req, res) => {
       return res.status(400).json({ error: 'Estado de transacción no válido' });
     }
     
-    // Extraer musaId y planId desde customer-data si está disponible
+    // Extraer musaId, planId, código de descuento y valor total desde customer-data si está disponible
     let musaIdFromWebhook = null;
     let planIdFromWebhook = null;
+    let codigoDescuentoIdFromWebhook = null;
+    let codigoDescuentoNombreFromWebhook = null;
+    let valorTotalFromWebhook = null;
     try {
       const customerData = transaction.customer_data || eventData.customer_data || event.customer_data || eventData.transaction?.customer_data;
       
@@ -426,6 +429,9 @@ app.post('/webhook/wompi', async (req, res) => {
         const customerDataObj = typeof customerData === 'string' ? JSON.parse(customerData) : customerData;
         musaIdFromWebhook = customerDataObj?.musaId || customerDataObj?.musa_id || null;
         planIdFromWebhook = customerDataObj?.planId || customerDataObj?.plan_id || null;
+        codigoDescuentoIdFromWebhook = customerDataObj?.codigoDescuentoId || customerDataObj?.codigo_descuento_id || null;
+        codigoDescuentoNombreFromWebhook = customerDataObj?.codigoDescuentoNombre || customerDataObj?.codigo_descuento_nombre || null;
+        valorTotalFromWebhook = customerDataObj?.valorTotal || customerDataObj?.valor_total || null;
       }
     } catch (error) {
       // Continuar sin customer-data si hay error
@@ -929,7 +935,7 @@ app.post('/webhook/wompi', async (req, res) => {
 
     // ====================================================================
     // CREAR VENTA EN TABLA Ventas SI EL ESTADO ES APPROVED
-    // Siempre crear una nueva venta cuando el estado es APPROVED
+    // La venta se crea SOLO cuando el pago es aprobado, con código de descuento y valor total
     // ====================================================================
     if (status && status.toUpperCase() === 'APPROVED' && musaId && reference) {
       
@@ -943,7 +949,6 @@ app.post('/webhook/wompi', async (req, res) => {
         if (planId) {
           ventaFields.planes = String(planId); // Puede no existir, pero lo intentamos
           ventaFields.R73887654 = String(planId); // Campo que sí existe
-        } else {
         }
         
         // Si tenemos planName, agregar el nombre del plan a la venta
@@ -951,20 +956,62 @@ app.post('/webhook/wompi', async (req, res) => {
           ventaFields.Plan_Name = String(planName);
           ventaFields.plan_name = String(planName);
           ventaFields.Nombre_Plan = String(planName);
-        } else {
         }
         
+        // Agregar código de descuento si está disponible desde customer-data
+        if (codigoDescuentoIdFromWebhook) {
+          // R73885532 - Relación con tabla Codigo_Descuento (ID del código de descuento aplicado)
+          ventaFields.R73885532 = String(codigoDescuentoIdFromWebhook).trim();
+          // Intentar también otros posibles nombres de campo para la relación
+          ventaFields.Codigo_Descuento = String(codigoDescuentoIdFromWebhook).trim();
+          ventaFields.codigo_descuento = String(codigoDescuentoIdFromWebhook).trim();
+        }
         
-        const ventaResult = await createRollbaseRecord('Ventas', ventaFields);
+        // Agregar nombre del código de descuento en campos de texto (no de relación)
+        if (codigoDescuentoNombreFromWebhook) {
+          ventaFields.Codigo_Descuento_Nombre = String(codigoDescuentoNombreFromWebhook).trim();
+          ventaFields.Nombre_Codigo_Descuento = String(codigoDescuentoNombreFromWebhook).trim();
+          ventaFields.Codigo_Descuento_Name = String(codigoDescuentoNombreFromWebhook).trim();
+        }
         
-        if (ventaResult && ventaResult.id) {
-          ventaId = ventaResult.id;
-        } else if (ventaResult && Array.isArray(ventaResult) && ventaResult.length > 0) {
-          ventaId = Array.isArray(ventaResult[0]) ? ventaResult[0][0] : ventaResult[0].id;
+        // Agregar valor total (precio final con descuento si aplica)
+        if (valorTotalFromWebhook) {
+          const valorTotalNum = parseFloat(valorTotalFromWebhook);
+          if (!isNaN(valorTotalNum) && valorTotalNum > 0) {
+            // Intentar múltiples variaciones del nombre del campo
+            ventaFields.Valor_total = String(valorTotalNum);
+            ventaFields.valor_total = String(valorTotalNum);
+            ventaFields.ValorTotal = String(valorTotalNum);
+            ventaFields.Valor_Total = String(valorTotalNum);
+            ventaFields.valorTotal = String(valorTotalNum);
+          }
+        }
+        
+        // Consumidas_hoy: Inicializar en 0 al crear la venta
+        ventaFields.Consumidas_hoy = '0';
+        ventaFields.consumidas_hoy = '0';
+        ventaFields.ConsumidasHoy = '0';
+        
+        // Intentar crear con diferentes nombres de objeto
+        const objNames = ['Ventas', 'Venta', 'ventas'];
+        for (const objName of objNames) {
+          try {
+            const ventaResult = await createRollbaseRecord(objName, ventaFields);
+            
+            if (ventaResult && ventaResult.id) {
+              ventaId = ventaResult.id;
+              break;
+            } else if (ventaResult && Array.isArray(ventaResult) && ventaResult.length > 0) {
+              ventaId = Array.isArray(ventaResult[0]) ? ventaResult[0][0] : ventaResult[0].id;
+              break;
+            }
+          } catch (error) {
+            // Continuar con el siguiente nombre de objeto si este falla
+            continue;
+          }
         }
       } catch (error) {
-        if (error.response) {
-        }
+        // Continuar aunque falle
       }
     } else {
       if (status && status.toUpperCase() !== 'APPROVED') {
