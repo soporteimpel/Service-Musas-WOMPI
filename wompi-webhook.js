@@ -880,6 +880,12 @@ app.post('/webhook/wompi', async (req, res) => {
           fieldsToSend['R74136898'] = normalizedPlanId;
         }
         
+        // IMPORTANTE: Si el estado es APPROVED, actualizar el estado de la musa a "Activo"
+        // NOTA: Ajustar el nombre del campo si es diferente en Rollbase (puede ser "Estado", "Estado_Musa", "estado", etc.)
+        if (status && status.toUpperCase() === 'APPROVED') {
+          fieldsToSend['Estado'] = 'Activo';  // Cambiar de "Pendiente" a "Activo" cuando el pago sea exitoso
+        }
+        
         // Solo agregar Customer_Email si está disponible
         if (musaUpdateData['Customer_Email']) {
           fieldsToSend['Customer_Email'] = musaUpdateData['Customer_Email'];
